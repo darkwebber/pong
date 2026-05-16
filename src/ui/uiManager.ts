@@ -586,10 +586,10 @@ export class UIManager {
         <h3>Power-ups</h3>
         <div class="powerup-list">
           <div class="powerup-item"><span class="powerup-dot" style="background:#00ff88;box-shadow:0 0 8px #00ff88">E</span> <strong>Expand</strong> — Grow your paddle</div>
-          <div class="powerup-item"><span class="powerup-dot" style="background:#ff4444;box-shadow:0 0 8px #ff4444">S</span> <strong>Shrink</strong> — Shrink opponent's paddle</div>
+          <div class="powerup-item"><span class="powerup-dot" style="background:#cc0000;box-shadow:0 0 8px #cc0000">S</span> <strong>Shrink</strong> — Shrink your paddle (trap!)</div>
           <div class="powerup-item"><span class="powerup-dot" style="background:#ffee00;box-shadow:0 0 8px #ffee00">M</span> <strong>Multiball</strong> — Split into 3 balls</div>
           <div class="powerup-item"><span class="powerup-dot" style="background:#aa66ff;box-shadow:0 0 8px #aa66ff">G</span> <strong>Magnet</strong> — Ball sticks to your paddle</div>
-          <div class="powerup-item"><span class="powerup-dot" style="background:#00ccff;box-shadow:0 0 8px #00ccff">T</span> <strong>Time Warp</strong> — Slow opponent's paddle</div>
+          <div class="powerup-item"><span class="powerup-dot" style="background:#6600aa;box-shadow:0 0 8px #6600aa">T</span> <strong>Time Warp</strong> — Slow your paddle (trap!)</div>
         </div>
       </div>
     `;
@@ -776,6 +776,7 @@ export class UIManager {
   showPowerUpIndicator(target: 'player' | 'ai', type: string, duration: number): void {
     const indicator = target === 'player' ? this.playerPowerUp : this.aiPowerUp;
     indicator.textContent = type.toUpperCase();
+    indicator.classList.toggle('negative', type === 'shrink' || type === 'timewarp');
     indicator.style.display = 'block';
 
     const existing = this.powerUpTimeouts.get(target);
@@ -793,6 +794,7 @@ export class UIManager {
   hidePowerUpIndicator(target: 'player' | 'ai'): void {
     const indicator = target === 'player' ? this.playerPowerUp : this.aiPowerUp;
     indicator.style.display = 'none';
+    indicator.classList.remove('negative');
 
     const existing = this.powerUpTimeouts.get(target);
     if (existing) {

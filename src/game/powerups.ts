@@ -222,9 +222,24 @@ export class PowerUpManager {
     const x = this.spawned.x;
     const y = this.spawned.y + floatOffset;
     const radius = this.spawned.radius * pulse;
+    const isNegative = this.spawned.type === 'shrink' || this.spawned.type === 'timewarp';
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+
+    // Warning ring for negative power-ups (pulsing danger indicator)
+    if (isNegative) {
+      const warningPulse = 0.5 + 0.5 * Math.sin(this.floatTime * 6);
+      ctx.globalAlpha = warningPulse * 0.6;
+      ctx.strokeStyle = '#ff3300';
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#ff3300';
+      ctx.beginPath();
+      ctx.arc(x, y, radius + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     // Outer glow ring
     ctx.shadowBlur = 30;

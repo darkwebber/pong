@@ -321,7 +321,7 @@ export class Game {
       this.rainbowMode = !this.rainbowMode;
       localStorage.setItem('pong_rainbow_unlocked', String(this.rainbowMode));
       if (this.settings.soundEnabled) {
-        this.audio.playPowerUp('multiball'); // Use as unlock sound
+        this.audio.playMilestoneSound();
       }
     }
 
@@ -389,6 +389,11 @@ export class Game {
     this.background.update(dt, intensity);
     this.background.setBallDirection(this.mainBall.vx);
 
+    // Update music intensity based on rally
+    if (this.settings.musicEnabled) {
+      this.audio.setMusicIntensity(intensity);
+    }
+
     // Player input
     const input = this.input.getPlayerInput();
 
@@ -399,9 +404,9 @@ export class Game {
     for (const effect of activeEffects) {
       if (effect.type === 'timewarp') {
         if (effect.target === 'player') {
-          aiSpeedMult = 0.5;
-        } else {
           playerSpeedMult = 0.5;
+        } else {
+          aiSpeedMult = 0.5;
         }
       }
     }
@@ -721,7 +726,7 @@ export class Game {
       this.milestoneAnnounced = true;
       this.hyperModeActive = true;
       if (this.settings.soundEnabled) {
-        this.audio.playPowerUp('multiball'); // Milestone sound
+        this.audio.playMilestoneSound();
       }
       if (this.settings.particlesEnabled) {
         this.particles.emitRainbow(ball.x, ball.y, 50, 400);
@@ -848,14 +853,13 @@ export class Game {
 
   private applyPowerUp(effect: ActiveEffect): void {
     const targetPaddle = effect.target === 'player' ? this.playerPaddle : this.aiPaddle;
-    const opponentPaddle = effect.target === 'player' ? this.aiPaddle : this.playerPaddle;
 
     switch (effect.type) {
       case 'expand':
         targetPaddle.expand(effect.duration);
         break;
       case 'shrink':
-        opponentPaddle.shrink(effect.duration);
+        targetPaddle.shrink(effect.duration);
         break;
       case 'multiball':
         this.spawnMultiBall();

@@ -41,10 +41,10 @@ export const POWERUP_RADIUS = 22;
 export const POWERUP_DURATION = 6000;
 export const POWERUP_COLORS: Record<string, { color: string; glow: string }> = {
   expand: { color: '#00ff88', glow: '#00ff88' },
-  shrink: { color: '#ff4444', glow: '#ff4444' },
+  shrink: { color: '#cc0000', glow: '#cc0000' },
   multiball: { color: '#ffee00', glow: '#ffee00' },
   magnet: { color: '#aa66ff', glow: '#aa66ff' },
-  timewarp: { color: '#00ccff', glow: '#00ccff' },
+  timewarp: { color: '#6600aa', glow: '#6600aa' },
 };
 
 // Visual Effects

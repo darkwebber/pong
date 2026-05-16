@@ -31,7 +31,7 @@ export interface GameSettings {
 export const DEFAULT_SETTINGS: GameSettings = {
   difficulty: 'medium',
   soundEnabled: true,
-  musicEnabled: false,
+  musicEnabled: true,
   particlesEnabled: true,
   screenShakeEnabled: true,
   timeDilationEnabled: true,

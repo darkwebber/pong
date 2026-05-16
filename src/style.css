@@ -387,6 +387,25 @@ body {
   box-shadow: 0 0 10px rgba(255, 0, 170, 0.3);
 }
 
+.powerup-indicator.negative {
+  color: #ff3300 !important;
+  border-color: #ff3300 !important;
+  box-shadow: 0 0 10px rgba(255, 51, 0, 0.5) !important;
+  animation: negativeIndicatorPulse 0.8s ease-in-out infinite;
+  background: rgba(255, 51, 0, 0.1);
+}
+
+@keyframes negativeIndicatorPulse {
+  0%, 100% {
+    opacity: 0.7;
+    box-shadow: 0 0 10px rgba(255, 51, 0, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(255, 51, 0, 0.7);
+  }
+}
+
 @keyframes indicatorPulse {
   0%, 100% {
     opacity: 0.8;
@@ -789,7 +808,7 @@ body {
 
 .portrait-mode .score-player {
   position: absolute;
-  bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   order: unset;
@@ -797,7 +816,7 @@ body {
 
 .portrait-mode .score-ai {
   position: absolute;
-  top: calc(0.5rem + env(safe-area-inset-top, 0px));
+  top: calc(2.5rem + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   order: unset;
