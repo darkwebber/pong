@@ -47,7 +47,7 @@ There is no automated test suite. Changes should be verified by:
 
 1. Running `npm run build` — this runs the TypeScript compiler and Vite build
 2. Playing the game manually to confirm:
-   - Paddle movement feels smooth (keyboard, mouse, touch)
+   - Paddle movement feels smooth (keyboard, touch)
    - Ball physics are consistent
    - AI behaves appropriately at each difficulty level
    - Power-ups spawn and apply correctly

@@ -48,7 +48,6 @@ npm run preview
 | `S` / `Arrow Down` | Move paddle down | — |
 | `A` / `Arrow Left` | — | Move paddle left |
 | `D` / `Arrow Right` | — | Move paddle right |
-| `Mouse` | Move paddle to cursor position | Move paddle to cursor position |
 | `Touch` | Drag to move paddle (mobile) | On-screen buttons or drag |
 | `ESC` / `P` | Pause | Pause |
 

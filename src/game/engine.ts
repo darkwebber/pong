@@ -405,8 +405,6 @@ export class Game {
       this.playerPaddle.setMoveDirection(input.value);
     } else if (input.mode === 'touch') {
       this.playerPaddle.setPosition(input.value, CANVAS_HEIGHT);
-    } else if (input.mode === 'mouse') {
-      this.playerPaddle.setTargetY(input.value);
     } else {
       this.playerPaddle.setMoveDirection(0);
     }

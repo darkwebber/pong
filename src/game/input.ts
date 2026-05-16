@@ -1,4 +1,4 @@
-export type InputMode = 'none' | 'keyboard' | 'touch' | 'mouse';
+export type InputMode = 'none' | 'keyboard' | 'touch';
 
 export interface InputResult {
   mode: InputMode;
@@ -23,10 +23,9 @@ export function isTouchDevice(): boolean {
 }
 
 /**
- * Manages player input from keyboard, mouse, and touch.
+ * Manages player input from keyboard and touch.
  * Keyboard takes priority when movement keys are held.
- * Mouse and touch are available on all screen sizes.
- * In portrait mode, touch/mouse X-axis maps to paddle position.
+ * In portrait mode, touch X-axis maps to paddle position.
  */
 export class InputManager {
   private canvas: HTMLCanvasElement;
@@ -34,9 +33,6 @@ export class InputManager {
 
   private _keysDown = new Set<string>();
   private _keysPressedThisFrame = new Set<string>();
-
-  private _mouseY: number | null = null;
-  private _mouseOver = false;
 
   private _touchY: number | null = null;
   private _touchActive = false;
@@ -55,9 +51,6 @@ export class InputManager {
   private _konamiCompleted = false;
   private _portraitButtonValue = 0; // -1 for left, 1 for right, 0 for none
 
-  private _boundOnMouseMove: ((e: MouseEvent) => void) | null = null;
-  private _boundOnMouseEnter: ((e: MouseEvent) => void) | null = null;
-  private _boundOnMouseLeave: (() => void) | null = null;
   private _boundOnTouchStart: (e: TouchEvent) => void;
   private _boundOnTouchMove: (e: TouchEvent) => void;
   private _boundOnTouchEnd: (e: TouchEvent) => void;
@@ -78,15 +71,6 @@ export class InputManager {
       this._lastMovementKey = null;
     };
 
-    // Register mouse events on all screen sizes
-    this._boundOnMouseMove = this._onMouseMove.bind(this);
-    this._boundOnMouseEnter = this._onMouseEnter.bind(this);
-    this._boundOnMouseLeave = this._onMouseLeave.bind(this);
-
-    canvas.addEventListener('mousemove', this._boundOnMouseMove);
-    canvas.addEventListener('mouseenter', this._boundOnMouseEnter);
-    canvas.addEventListener('mouseleave', this._boundOnMouseLeave);
-
     canvas.addEventListener('touchstart', this._boundOnTouchStart, { passive: false });
     canvas.addEventListener('touchmove', this._boundOnTouchMove, { passive: false });
     canvas.addEventListener('touchend', this._boundOnTouchEnd);
@@ -104,8 +88,6 @@ export class InputManager {
       this._touchY = null;
       this._touchHistory = [];
       this._touchIndicator.active = false;
-      this._mouseOver = false;
-      this._mouseY = null;
     }
   }
 
@@ -116,8 +98,6 @@ export class InputManager {
       this._touchY = null;
       this._touchHistory = [];
       this._touchIndicator.active = false;
-      this._mouseOver = false;
-      this._mouseY = null;
       this._portraitButtonValue = 0;
     }
   }
@@ -155,25 +135,6 @@ export class InputManager {
     }
     const sum = this._touchHistory.reduce((a, b) => a + b, 0);
     return sum / this._touchHistory.length;
-  }
-
-  private _onMouseMove(e: MouseEvent): void {
-    this._mouseOver = true;
-    this._mouseY = this._portraitMode
-      ? this._getNormalizedX(e.clientX)
-      : this._getNormalizedY(e.clientY);
-  }
-
-  private _onMouseEnter(e: MouseEvent): void {
-    this._mouseOver = true;
-    this._mouseY = this._portraitMode
-      ? this._getNormalizedX(e.clientX)
-      : this._getNormalizedY(e.clientY);
-  }
-
-  private _onMouseLeave(): void {
-    this._mouseOver = false;
-    this._mouseY = null;
   }
 
   private _onTouchStart(e: TouchEvent): void {
@@ -297,7 +258,7 @@ export class InputManager {
   /**
    * Returns player input state.
    * Keyboard ALWAYS wins when movement keys are held.
-   * Touch takes priority over mouse when both are active.
+   * Touch is available on all screens.
    * Returns 'none' when input is disabled (e.g. during menus/overlays).
    * In portrait mode, keyboard uses left/right keys (hard switch).
    */
@@ -348,11 +309,6 @@ export class InputManager {
       return { mode: 'touch', value: this._touchY };
     }
 
-    // Mouse input (smooth control — all screens)
-    if (this._mouseOver && this._mouseY !== null) {
-      return { mode: 'mouse', value: this._mouseY };
-    }
-
     return { mode: 'none', value: 0 };
   }
 
@@ -386,11 +342,6 @@ export class InputManager {
   }
 
   destroy(): void {
-    if (this._boundOnMouseMove) {
-      this.canvas.removeEventListener('mousemove', this._boundOnMouseMove);
-      this.canvas.removeEventListener('mouseenter', this._boundOnMouseEnter!);
-      this.canvas.removeEventListener('mouseleave', this._boundOnMouseLeave!);
-    }
     this.canvas.removeEventListener('touchstart', this._boundOnTouchStart);
     this.canvas.removeEventListener('touchmove', this._boundOnTouchMove);
     this.canvas.removeEventListener('touchend', this._boundOnTouchEnd);

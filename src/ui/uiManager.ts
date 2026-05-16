@@ -129,7 +129,7 @@ export class UIManager {
     }
     return isTouchDevice()
       ? 'Touch and drag to move \u00A0\u00B7\u00A0 Tap \u23F8 to pause'
-      : 'WASD / Arrows / Mouse to move \u00A0\u00B7\u00A0 ESC to pause';
+      : 'WASD / Arrow Keys to move \u00A0\u00B7\u00A0 ESC to pause';
   }
 
   private getTutorialMoveText(): string {
@@ -140,7 +140,7 @@ export class UIManager {
     }
     return isTouchDevice()
       ? 'Touch and drag to move your paddle'
-      : 'Use <strong>WASD</strong>, <strong>Arrow Keys</strong>, or <strong>Mouse</strong> to move';
+      : 'Use <strong>WASD</strong> or <strong>Arrow Keys</strong> to move';
   }
 
   private getTutorialPositionText(): string {
@@ -553,11 +553,6 @@ export class UIManager {
     this.addListener(leftBtn, 'touchend', () => onRelease(leftBtn));
     this.addListener(leftBtn, 'touchcancel', () => onRelease(leftBtn));
 
-    // Mouse events for left button
-    this.addListener(leftBtn, 'mousedown', () => onPress(leftBtn, -1));
-    this.addListener(leftBtn, 'mouseup', () => onRelease(leftBtn));
-    this.addListener(leftBtn, 'mouseleave', () => onRelease(leftBtn));
-
     // Touch events for right button
     this.addListener(rightBtn, 'touchstart', (e) => {
       e.preventDefault();
@@ -565,11 +560,6 @@ export class UIManager {
     });
     this.addListener(rightBtn, 'touchend', () => onRelease(rightBtn));
     this.addListener(rightBtn, 'touchcancel', () => onRelease(rightBtn));
-
-    // Mouse events for right button
-    this.addListener(rightBtn, 'mousedown', () => onPress(rightBtn, 1));
-    this.addListener(rightBtn, 'mouseup', () => onRelease(rightBtn));
-    this.addListener(rightBtn, 'mouseleave', () => onRelease(rightBtn));
 
     console.log('[UI] Portrait controls created (side-mounted)');
   }
@@ -582,7 +572,7 @@ export class UIManager {
          <p><strong>ESC</strong> or <strong>P</strong> to pause the game</p>
          <p><strong>Enter</strong> or <strong>Space</strong> to confirm selections</p>`
       : `<p><strong>WASD</strong> or <strong>Arrow Keys</strong> to move your paddle up and down</p>
-         <p><strong>Mouse</strong> or <strong>Touch</strong> to move your paddle directly</p>
+         <p><strong>Touch</strong> to move your paddle directly</p>
          <p><strong>ESC</strong> or <strong>P</strong> to pause the game</p>
          <p><strong>Enter</strong> or <strong>Space</strong> to confirm selections</p>`;
 
