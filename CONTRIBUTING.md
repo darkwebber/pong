@@ -53,6 +53,17 @@ There is no automated test suite. Changes should be verified by:
    - Power-ups spawn and apply correctly
    - Visual effects render properly
    - Audio plays on hits, scores, and power-ups
+   - **Portrait mode**: on-screen controls appear correctly, keyboard switches to left/right
+   - **Background wave**: flows with ball direction, freezes during pauses
+
+### Testing Portrait Mode
+
+When testing mobile/portrait features:
+- Use browser dev tools device emulation or a real mobile device
+- Verify on-screen buttons appear on left/right edges, vertically centered
+- Verify keyboard controls switch to A/D or Arrow Left/Right
+- Verify UI text adapts (e.g., "paddle at the BOTTOM" instead of "on the LEFT")
+- Verify scores are positioned at top/bottom centers without overlapping paddles
 
 ## Reporting Issues
 
@@ -62,6 +73,7 @@ If you find a bug or have a feature request, please open an issue with:
 - Steps to reproduce (for bugs)
 - Expected vs actual behavior (for bugs)
 - Browser and OS version (for bugs)
+- Device orientation if relevant (landscape vs portrait)
 
 ## License
 

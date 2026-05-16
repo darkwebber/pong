@@ -4,6 +4,9 @@ export class BackgroundRenderer {
   private time: number = 0;
   private gridOffset: number = 0;
   private currentIntensity: number = 0;
+  private waveOffset: number = 0;
+  private ballDirection: number = 0; // -1, 0, or 1
+  private waveFrozen: boolean = false;
 
   constructor(canvasWidth: number, canvasHeight: number) {
     this.canvasWidth = canvasWidth;
@@ -16,6 +19,21 @@ export class BackgroundRenderer {
     this.gridOffset += dt * 20 * (0.5 + intensity * 0.5);
     if (this.gridOffset > 40) {
       this.gridOffset -= 40;
+    }
+
+    // Update wave offset based on ball direction
+    if (this.ballDirection !== 0 && !this.waveFrozen) {
+      this.waveOffset -= dt * 3 * this.ballDirection;
+    }
+  }
+
+  setBallDirection(vx: number): void {
+    const newDirection = Math.sign(vx);
+    if (newDirection === 0) {
+      this.waveFrozen = true;
+    } else {
+      this.ballDirection = newDirection;
+      this.waveFrozen = false;
     }
   }
 
@@ -55,7 +73,6 @@ export class BackgroundRenderer {
     const centerY = this.canvasHeight / 2;
     const waveAmplitude = 30 + 100 * this.currentIntensity;
     const waveFreq = 0.01;
-    const waveSpeed = this.time * 3;
 
     ctx.strokeStyle = `rgba(0, 240, 255, ${0.3 + this.currentIntensity * 0.4})`;
     ctx.lineWidth = 2;
@@ -64,7 +81,7 @@ export class BackgroundRenderer {
 
     ctx.beginPath();
     for (let x = 0; x < this.canvasWidth; x += 2) {
-      const y = centerY + Math.sin(x * waveFreq + waveSpeed) * waveAmplitude;
+      const y = centerY + Math.sin(x * waveFreq + this.waveOffset) * waveAmplitude;
       if (x === 0) {
         ctx.moveTo(x, y);
       } else {

@@ -59,9 +59,6 @@ export const TIME_DILATION_FACTOR = 0.5;
 export const TIME_DILATION_DURATION = 150;
 export const PADDLE_HIT_DEBOUNCE_MS = 40;
 
-// Input
-export const MOBILE_BREAKPOINT = 768; // px — disable mouse above this width
-
 // CRT Effect
 export const CRT_SCANLINE_SPACING = 4;
 export const CRT_SCANLINE_OPACITY = 0.08;

@@ -8,9 +8,11 @@ A modern, neon-soaked take on the classic Pong arcade game. Built with TypeScrip
 - **Dynamic AI opponent** — three difficulty levels (Easy, Medium, Hard) with trajectory prediction
 - **Power-ups** — expand, shrink, multiball, magnet, and time warp
 - **Visual effects** — particle bursts, screen shake, neon glow, CRT scanlines, time dilation
+- **Animated background wave** — flows in the direction of the ball, freezes during pauses and countdowns
 - **Rainbow mode** — unlockable via the classic Konami code
 - **Web Audio** — synthesized sound effects generated in real time
 - **Fully responsive** — adapts to any screen size
+- **Mobile portrait mode** — side-mounted on-screen controls, orientation-aware keyboard bindings, dynamic UI text
 
 ## Tech Stack
 
@@ -40,13 +42,22 @@ npm run preview
 
 ### Controls
 
-| Input | Action |
-|-------|--------|
-| `W` / `Arrow Up` | Move paddle up |
-| `S` / `Arrow Down` | Move paddle down |
-| `Mouse` | Move paddle to cursor position |
-| `Touch` | Drag to move paddle (mobile) |
-| `ESC` / `P` | Pause |
+| Input | Landscape Action | Portrait Action |
+|-------|-----------------|-----------------|
+| `W` / `Arrow Up` | Move paddle up | — |
+| `S` / `Arrow Down` | Move paddle down | — |
+| `A` / `Arrow Left` | — | Move paddle left |
+| `D` / `Arrow Right` | — | Move paddle right |
+| `Mouse` | Move paddle to cursor position | Move paddle to cursor position |
+| `Touch` | Drag to move paddle (mobile) | On-screen buttons or drag |
+| `ESC` / `P` | Pause | Pause |
+
+### Portrait Mode (Mobile)
+
+- Rotate your device vertically for an optimized experience
+- On-screen directional buttons appear on the left and right edges of the screen
+- Keyboard controls automatically switch to left/right (A/D or Arrow keys)
+- UI text and tutorials adapt to describe your paddle position correctly
 
 ### Game Rules
 
@@ -89,7 +100,7 @@ Enter the Konami code during gameplay to unlock **Rainbow Mode**.
 │   │   └── effects/
 │   │       ├── particles.ts    # Particle system
 │   │       ├── screenEffects.ts # Screen shake and time dilation
-│   │       └── background.ts   # Animated grid background
+│   │       └── background.ts   # Animated grid background with directional wave
 │   └── ui/
 │       └── uiManager.ts        # HUD, menus, overlays (DOM-based)
 ├── public/

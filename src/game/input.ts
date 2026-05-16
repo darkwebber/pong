@@ -5,19 +5,32 @@ export interface InputResult {
   value: number;
 }
 
+export interface TouchIndicator {
+  x: number;
+  y: number;
+  active: boolean;
+}
+
 const KONAMI_SEQUENCE = [
   'ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',
   'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight',
   'b', 'a',
 ];
 
+/** Check if the device supports touch input. */
+export function isTouchDevice(): boolean {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
 /**
  * Manages player input from keyboard, mouse, and touch.
  * Keyboard takes priority when movement keys are held.
  * Mouse and touch are available on all screen sizes.
+ * In portrait mode, touch/mouse X-axis maps to paddle position.
  */
 export class InputManager {
   private canvas: HTMLCanvasElement;
+  private _portraitMode = false;
 
   private _keysDown = new Set<string>();
   private _keysPressedThisFrame = new Set<string>();
@@ -27,6 +40,12 @@ export class InputManager {
 
   private _touchY: number | null = null;
   private _touchActive = false;
+  private _touchHistory: number[] = [];
+  private _touchIndicator: TouchIndicator = { x: 0, y: 0.5, active: false };
+  private readonly _touchSmoothingWindow = 3;
+  private readonly _touchDeadZone = 0.008;
+
+  private _enabled = true;
 
   private _framePausePressed = false;
   private _frameActionPressed = false;
@@ -34,6 +53,7 @@ export class InputManager {
   private _lastMovementKey: string | null = null;
   private _konamiIndex = 0;
   private _konamiCompleted = false;
+  private _portraitButtonValue = 0; // -1 for left, 1 for right, 0 for none
 
   private _boundOnMouseMove: ((e: MouseEvent) => void) | null = null;
   private _boundOnMouseEnter: ((e: MouseEvent) => void) | null = null;
@@ -76,6 +96,44 @@ export class InputManager {
     window.addEventListener('blur', this._boundOnBlur);
   }
 
+  /** Enable or disable gameplay input (paddle movement). Keyboard pause/action always works. */
+  setEnabled(enabled: boolean): void {
+    this._enabled = enabled;
+    if (!enabled) {
+      this._touchActive = false;
+      this._touchY = null;
+      this._touchHistory = [];
+      this._touchIndicator.active = false;
+      this._mouseOver = false;
+      this._mouseY = null;
+    }
+  }
+
+  setPortraitMode(isPortrait: boolean): void {
+    if (this._portraitMode !== isPortrait) {
+      this._portraitMode = isPortrait;
+      this._touchActive = false;
+      this._touchY = null;
+      this._touchHistory = [];
+      this._touchIndicator.active = false;
+      this._mouseOver = false;
+      this._mouseY = null;
+      this._portraitButtonValue = 0;
+    }
+  }
+
+  /** Set on-screen portrait button input: -1 for left, 1 for right, 0 for released */
+  setPortraitButton(value: number): void {
+    this._portraitButtonValue = Math.max(-1, Math.min(1, value));
+    if (this._portraitButtonValue !== 0) {
+      this._lastMovementKey = this._portraitButtonValue === -1 ? 'ArrowLeft' : 'ArrowRight';
+    }
+  }
+
+  getTouchIndicator(): TouchIndicator {
+    return { ...this._touchIndicator };
+  }
+
   private _getNormalizedY(clientY: number): number {
     const rect = this.canvas.getBoundingClientRect();
     if (rect.height === 0) return 0.5;
@@ -83,14 +141,34 @@ export class InputManager {
     return Math.max(0, Math.min(1, y / rect.height));
   }
 
+  private _getNormalizedX(clientX: number): number {
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0) return 0.5;
+    const x = clientX - rect.left;
+    return Math.max(0, Math.min(1, x / rect.width));
+  }
+
+  private _smoothTouchY(rawY: number): number {
+    this._touchHistory.push(rawY);
+    if (this._touchHistory.length > this._touchSmoothingWindow) {
+      this._touchHistory.shift();
+    }
+    const sum = this._touchHistory.reduce((a, b) => a + b, 0);
+    return sum / this._touchHistory.length;
+  }
+
   private _onMouseMove(e: MouseEvent): void {
     this._mouseOver = true;
-    this._mouseY = this._getNormalizedY(e.clientY);
+    this._mouseY = this._portraitMode
+      ? this._getNormalizedX(e.clientX)
+      : this._getNormalizedY(e.clientY);
   }
 
   private _onMouseEnter(e: MouseEvent): void {
     this._mouseOver = true;
-    this._mouseY = this._getNormalizedY(e.clientY);
+    this._mouseY = this._portraitMode
+      ? this._getNormalizedX(e.clientX)
+      : this._getNormalizedY(e.clientY);
   }
 
   private _onMouseLeave(): void {
@@ -102,28 +180,55 @@ export class InputManager {
     e.preventDefault();
     this._touchActive = true;
     if (e.touches.length > 0) {
-      this._touchY = this._getNormalizedY(e.touches[0].clientY);
+      const rawPos = this._portraitMode
+        ? this._getNormalizedX(e.touches[0].clientX)
+        : this._getNormalizedY(e.touches[0].clientY);
+      this._touchY = rawPos;
+      this._touchHistory = [rawPos];
+      this._touchIndicator = { x: e.touches[0].clientX, y: rawPos, active: true };
     }
   }
 
   private _onTouchMove(e: TouchEvent): void {
     e.preventDefault();
     if (e.touches.length > 0) {
-      this._touchY = this._getNormalizedY(e.touches[0].clientY);
+      const rawPos = this._portraitMode
+        ? this._getNormalizedX(e.touches[0].clientX)
+        : this._getNormalizedY(e.touches[0].clientY);
+      if (this._touchY === null || Math.abs(rawPos - this._touchY) > this._touchDeadZone) {
+        this._touchY = this._smoothTouchY(rawPos);
+      }
+      this._touchIndicator = { x: e.touches[0].clientX, y: this._touchY ?? rawPos, active: true };
     }
   }
 
   private _onTouchEnd(e: TouchEvent): void {
-    e.preventDefault();
     if (e.touches.length === 0) {
       this._touchActive = false;
       this._touchY = null;
+      this._touchHistory = [];
+      this._touchIndicator.active = false;
     } else {
-      this._touchY = this._getNormalizedY(e.touches[0].clientY);
+      const rawPos = this._portraitMode
+        ? this._getNormalizedX(e.touches[0].clientX)
+        : this._getNormalizedY(e.touches[0].clientY);
+      this._touchY = rawPos;
+      this._touchHistory = [rawPos];
+      this._touchIndicator = { x: e.touches[0].clientX, y: rawPos, active: true };
     }
   }
 
   private _isMovementKey(key: string): boolean {
+    if (this._portraitMode) {
+      return (
+        key === 'a' ||
+        key === 'A' ||
+        key === 'ArrowLeft' ||
+        key === 'd' ||
+        key === 'D' ||
+        key === 'ArrowRight'
+      );
+    }
     return (
       key === 'w' ||
       key === 'W' ||
@@ -193,22 +298,49 @@ export class InputManager {
    * Returns player input state.
    * Keyboard ALWAYS wins when movement keys are held.
    * Touch takes priority over mouse when both are active.
+   * Returns 'none' when input is disabled (e.g. during menus/overlays).
+   * In portrait mode, keyboard uses left/right keys (hard switch).
    */
   getPlayerInput(): InputResult {
-    const upKeys = ['w', 'W', 'ArrowUp'];
-    const downKeys = ['s', 'S', 'ArrowDown'];
+    if (!this._enabled) {
+      return { mode: 'none', value: 0 };
+    }
 
-    const up = upKeys.some(k => this._keysDown.has(k));
-    const down = downKeys.some(k => this._keysDown.has(k));
+    // On-screen button input (portrait mobile)
+    if (this._portraitButtonValue !== 0) {
+      return { mode: 'keyboard', value: this._portraitButtonValue };
+    }
 
-    // KEYBOARD WINS: always process keyboard if keys are held
-    if (up || down) {
-      // Both held: respect most recently pressed key
-      if (up && down) {
-        const lastIsUp = upKeys.includes(this._lastMovementKey ?? '');
-        return { mode: 'keyboard', value: lastIsUp ? -1 : 1 };
+    if (this._portraitMode) {
+      // Portrait: left/right keys only (hard switch)
+      const leftKeys = ['a', 'A', 'ArrowLeft'];
+      const rightKeys = ['d', 'D', 'ArrowRight'];
+
+      const left = leftKeys.some(k => this._keysDown.has(k));
+      const right = rightKeys.some(k => this._keysDown.has(k));
+
+      if (left || right) {
+        if (left && right) {
+          const lastIsLeft = leftKeys.includes(this._lastMovementKey ?? '');
+          return { mode: 'keyboard', value: lastIsLeft ? -1 : 1 };
+        }
+        return { mode: 'keyboard', value: left ? -1 : 1 };
       }
-      return { mode: 'keyboard', value: up ? -1 : 1 };
+    } else {
+      // Landscape: up/down keys
+      const upKeys = ['w', 'W', 'ArrowUp'];
+      const downKeys = ['s', 'S', 'ArrowDown'];
+
+      const up = upKeys.some(k => this._keysDown.has(k));
+      const down = downKeys.some(k => this._keysDown.has(k));
+
+      if (up || down) {
+        if (up && down) {
+          const lastIsUp = upKeys.includes(this._lastMovementKey ?? '');
+          return { mode: 'keyboard', value: lastIsUp ? -1 : 1 };
+        }
+        return { mode: 'keyboard', value: up ? -1 : 1 };
+      }
     }
 
     // Touch input (direct control — all screens)

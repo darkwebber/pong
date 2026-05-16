@@ -1,4 +1,5 @@
 import type { Difficulty, GameSettings } from '../game/types.ts';
+import { isTouchDevice } from '../game/input.ts';
 
 export interface UIEvents {
   onStartGame: () => void;
@@ -10,6 +11,8 @@ export interface UIEvents {
   onDifficultyChange: (difficulty: Difficulty) => void;
   onSettingToggle: (key: keyof GameSettings) => void;
   onDismissTutorial: () => void;
+  onScreenPause?: () => void;
+  onPortraitButton?: (value: number) => void;
 }
 
 type ListenerEntry = {
@@ -22,6 +25,8 @@ export class UIManager {
   private container: HTMLElement;
   private events: UIEvents;
   private settings: GameSettings;
+  private isPortrait = false;
+  private gameplayActive = false;
 
   private hud!: HTMLElement;
   private scorePlayer!: HTMLElement;
@@ -40,7 +45,11 @@ export class UIManager {
   private countdownNumber!: HTMLElement;
   private settingsPanel!: HTMLElement;
   private howToPlayOverlay!: HTMLElement;
+  private howToPlayContent!: HTMLElement;
   private tutorialOverlay!: HTMLElement;
+  private tutorialContent!: HTMLElement;
+  private pauseButton!: HTMLElement;
+  private portraitControls!: HTMLElement;
 
   private difficultySelect!: HTMLSelectElement;
   private targetScoreSelect!: HTMLSelectElement;
@@ -64,6 +73,8 @@ export class UIManager {
     this.createSettingsPanel();
     this.createHowToPlay();
     this.createTutorial();
+    this.createPauseButton();
+    this.createPortraitControls();
 
     this.syncSettings(settings);
   }
@@ -91,8 +102,76 @@ export class UIManager {
     span.textContent = text;
     btn.appendChild(span);
 
-    this.addListener(btn, 'click', () => onClick());
+    this.addListener(btn, 'click', () => {
+      console.log('[UI] Button clicked:', text);
+      onClick();
+    });
+
+    // Touch feedback for mobile: add/remove active class immediately
+    // Note: No preventDefault() here - CSS touch-action: manipulation handles it
+    // and preventDefault() can suppress click events on some mobile browsers
+    if (isTouchDevice()) {
+      this.addListener(btn, 'touchstart', () => {
+        btn.classList.add('active');
+      });
+      this.addListener(btn, 'touchend', () => btn.classList.remove('active'));
+      this.addListener(btn, 'touchcancel', () => btn.classList.remove('active'));
+    }
+
     return btn;
+  }
+
+  private getControlHintText(): string {
+    if (this.isPortrait) {
+      return isTouchDevice()
+        ? 'Use on-screen buttons or drag to move \u00B7 Tap \u23F8 to pause'
+        : 'A/D or Arrow Left/Right to move \u00B7 ESC to pause';
+    }
+    return isTouchDevice()
+      ? 'Touch and drag to move \u00A0\u00B7\u00A0 Tap \u23F8 to pause'
+      : 'WASD / Arrows / Mouse to move \u00A0\u00B7\u00A0 ESC to pause';
+  }
+
+  private getTutorialMoveText(): string {
+    if (this.isPortrait) {
+      return isTouchDevice()
+        ? 'Use the on-screen buttons or drag to move your paddle'
+        : 'Use <strong>A/D</strong> or <strong>Arrow Left/Right</strong> to move your paddle left and right';
+    }
+    return isTouchDevice()
+      ? 'Touch and drag to move your paddle'
+      : 'Use <strong>WASD</strong>, <strong>Arrow Keys</strong>, or <strong>Mouse</strong> to move';
+  }
+
+  private getTutorialPositionText(): string {
+    if (this.isPortrait) {
+      return 'You are the <strong style="color:#00f0ff">CYAN</strong> paddle at the <strong>BOTTOM</strong>.';
+    }
+    return 'You are the <strong style="color:#00f0ff">CYAN</strong> paddle on the <strong>LEFT</strong>.';
+  }
+
+  setPortraitMode(portrait: boolean): void {
+    this.isPortrait = portrait;
+    this.updateHowToPlayText();
+    this.updateTutorialText();
+    this.updateControlHints();
+    this.updatePortraitControlsVisibility();
+  }
+
+  private updatePortraitControlsVisibility(): void {
+    const shouldShow = this.isPortrait && isTouchDevice() && this.gameplayActive;
+    this.portraitControls.classList.toggle('visible', shouldShow);
+    console.log('[UI] Portrait controls visibility:', shouldShow, '(portrait:', this.isPortrait, 'touch:', isTouchDevice(), 'gameplay:', this.gameplayActive, ')');
+  }
+
+  private showPortraitControls(): void {
+    this.gameplayActive = true;
+    this.updatePortraitControlsVisibility();
+  }
+
+  private hidePortraitControls(): void {
+    this.gameplayActive = false;
+    this.updatePortraitControlsVisibility();
   }
 
   private createSelectRow(label: string, select: HTMLElement): HTMLElement {
@@ -238,7 +317,7 @@ export class UIManager {
 
     const controlsHint = document.createElement('div');
     controlsHint.className = 'menu-controls-hint';
-    controlsHint.innerHTML = 'WASD / Arrows / Mouse to move &nbsp;&middot;&nbsp; ESC to pause';
+    controlsHint.innerHTML = this.getControlHintText();
 
     const btnStart = this.createButton('START GAME', () => this.events.onStartGame());
     const btnHowTo = this.createButton('HOW TO PLAY', () => this.showHowToPlay());
@@ -270,7 +349,7 @@ export class UIManager {
 
     const pauseControls = document.createElement('div');
     pauseControls.className = 'pause-controls-hint';
-    pauseControls.innerHTML = 'WASD / Arrows / Mouse to move &nbsp;&middot;&nbsp; ESC to pause';
+    pauseControls.innerHTML = this.getControlHintText();
 
     this.pauseMenu.append(title, btnResume, btnRestart, btnSettings, btnMainMenu, pauseControls);
     this.container.appendChild(this.pauseMenu);
@@ -358,36 +437,16 @@ export class UIManager {
     title.style.fontSize = 'clamp(1.8rem, 5vw, 3rem)';
     title.textContent = 'HOW TO PLAY';
 
-    const content = document.createElement('div');
-    content.className = 'how-to-play-content';
-    content.innerHTML = `
-      <div class="how-to-section">
-        <h3>Goal</h3>
-        <p>Hit the ball past the AI opponent. First to reach the target score wins!</p>
-      </div>
-      <div class="how-to-section">
-        <h3>Controls</h3>
-        <p><strong>WASD</strong> or <strong>Arrow Keys</strong> to move your paddle up and down</p>
-        <p><strong>Mouse</strong> or <strong>Touch</strong> to move your paddle directly</p>
-        <p><strong>ESC</strong> or <strong>P</strong> to pause the game</p>
-        <p><strong>Enter</strong> or <strong>Space</strong> to confirm selections</p>
-      </div>
-      <div class="how-to-section">
-        <h3>Power-ups</h3>
-        <div class="powerup-list">
-          <div class="powerup-item"><span class="powerup-dot" style="background:#00ff88;box-shadow:0 0 8px #00ff88">E</span> <strong>Expand</strong> — Grow your paddle</div>
-          <div class="powerup-item"><span class="powerup-dot" style="background:#ff4444;box-shadow:0 0 8px #ff4444">S</span> <strong>Shrink</strong> — Shrink opponent's paddle</div>
-          <div class="powerup-item"><span class="powerup-dot" style="background:#ffee00;box-shadow:0 0 8px #ffee00">M</span> <strong>Multiball</strong> — Split into 3 balls</div>
-          <div class="powerup-item"><span class="powerup-dot" style="background:#aa66ff;box-shadow:0 0 8px #aa66ff">G</span> <strong>Magnet</strong> — Ball sticks to your paddle</div>
-          <div class="powerup-item"><span class="powerup-dot" style="background:#00ccff;box-shadow:0 0 8px #00ccff">T</span> <strong>Time Warp</strong> — Slow opponent's paddle</div>
-        </div>
-      </div>
-    `;
+    this.howToPlayContent = document.createElement('div');
+    this.howToPlayContent.className = 'how-to-play-content';
 
     const btnBack = this.createButton('BACK', () => this.hideHowToPlay());
 
-    this.howToPlayOverlay.append(title, content, btnBack);
+    this.howToPlayOverlay.append(title, this.howToPlayContent, btnBack);
     this.container.appendChild(this.howToPlayOverlay);
+
+    // Initialize content
+    this.updateHowToPlayText();
   }
 
   private createTutorial(): void {
@@ -401,37 +460,196 @@ export class UIManager {
     title.style.color = '#00f0ff';
     title.textContent = 'WELCOME!';
 
-    const content = document.createElement('div');
-    content.className = 'how-to-play-content';
-    content.innerHTML = `
-      <div class="how-to-section">
-        <p style="font-size:1.1rem;text-align:center;margin-bottom:1rem">
-          You are the <strong style="color:#00f0ff">CYAN</strong> paddle on the <strong>LEFT</strong>.
-        </p>
-        <p style="text-align:center;margin-bottom:1rem">
-          Use <strong>WASD</strong>, <strong>Arrow Keys</strong>, or <strong>Mouse</strong> to move.
-        </p>
-        <p style="text-align:center">
-          Collect glowing orbs for <strong>power-ups</strong>. First to target score wins!
-        </p>
-      </div>
-    `;
+    this.tutorialContent = document.createElement('div');
+    this.tutorialContent.className = 'how-to-play-content';
 
     const btnGotIt = this.createButton("GOT IT!", () => {
       this.events.onDismissTutorial();
       this.hideTutorial();
     });
 
-    this.tutorialOverlay.append(title, content, btnGotIt);
+    this.tutorialOverlay.append(title, this.tutorialContent, btnGotIt);
     this.container.appendChild(this.tutorialOverlay);
+
+    // Initialize content
+    this.updateTutorialText();
+  }
+
+  private createPauseButton(): void {
+    this.pauseButton = document.createElement('button');
+    this.pauseButton.className = 'pause-button';
+    this.pauseButton.setAttribute('aria-label', 'Pause');
+    this.pauseButton.innerHTML = `
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="4" width="4" height="16" rx="1"/>
+        <rect x="14" y="4" width="4" height="16" rx="1"/>
+      </svg>
+    `;
+    this.pauseButton.style.display = 'none';
+
+    this.addListener(this.pauseButton, 'click', () => {
+      console.log('[UI] Pause button clicked');
+      this.events.onScreenPause?.();
+    });
+
+    // Touch feedback - no preventDefault to allow click events to fire
+    if (isTouchDevice()) {
+      this.addListener(this.pauseButton, 'touchstart', () => {
+        this.pauseButton.classList.add('active');
+      });
+      this.addListener(this.pauseButton, 'touchend', () => {
+        this.pauseButton.classList.remove('active');
+      });
+      this.addListener(this.pauseButton, 'touchcancel', () => {
+        this.pauseButton.classList.remove('active');
+      });
+    }
+
+    this.container.appendChild(this.pauseButton);
+  }
+
+  private createPortraitControls(): void {
+    this.portraitControls = document.createElement('div');
+    this.portraitControls.className = 'portrait-controls';
+
+    const leftBtn = document.createElement('button');
+    leftBtn.className = 'portrait-btn left-btn';
+    leftBtn.setAttribute('aria-label', 'Move Left');
+    leftBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+      </svg>
+    `;
+
+    const rightBtn = document.createElement('button');
+    rightBtn.className = 'portrait-btn right-btn';
+    rightBtn.setAttribute('aria-label', 'Move Right');
+    rightBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
+      </svg>
+    `;
+
+    this.portraitControls.append(leftBtn, rightBtn);
+    this.container.appendChild(this.portraitControls);
+
+    // Helper to handle button press
+    const onPress = (btn: HTMLElement, value: number) => {
+      console.log('[UI] Portrait button pressed:', value === -1 ? 'left' : 'right');
+      btn.classList.add('pressed');
+      this.events.onPortraitButton?.(value);
+    };
+
+    const onRelease = (btn: HTMLElement) => {
+      btn.classList.remove('pressed');
+      this.events.onPortraitButton?.(0);
+    };
+
+    // Touch events for left button
+    this.addListener(leftBtn, 'touchstart', (e) => {
+      e.preventDefault();
+      onPress(leftBtn, -1);
+    });
+    this.addListener(leftBtn, 'touchend', () => onRelease(leftBtn));
+    this.addListener(leftBtn, 'touchcancel', () => onRelease(leftBtn));
+
+    // Mouse events for left button
+    this.addListener(leftBtn, 'mousedown', () => onPress(leftBtn, -1));
+    this.addListener(leftBtn, 'mouseup', () => onRelease(leftBtn));
+    this.addListener(leftBtn, 'mouseleave', () => onRelease(leftBtn));
+
+    // Touch events for right button
+    this.addListener(rightBtn, 'touchstart', (e) => {
+      e.preventDefault();
+      onPress(rightBtn, 1);
+    });
+    this.addListener(rightBtn, 'touchend', () => onRelease(rightBtn));
+    this.addListener(rightBtn, 'touchcancel', () => onRelease(rightBtn));
+
+    // Mouse events for right button
+    this.addListener(rightBtn, 'mousedown', () => onPress(rightBtn, 1));
+    this.addListener(rightBtn, 'mouseup', () => onRelease(rightBtn));
+    this.addListener(rightBtn, 'mouseleave', () => onRelease(rightBtn));
+
+    console.log('[UI] Portrait controls created (side-mounted)');
+  }
+
+  private updateHowToPlayText(): void {
+    if (!this.howToPlayContent) return;
+    const controlsText = this.isPortrait
+      ? `<p><strong>A/D</strong> or <strong>Arrow Left/Right</strong> to move your paddle left and right</p>
+         <p><strong>On-screen buttons</strong> or <strong>Touch</strong> to move your paddle directly</p>
+         <p><strong>ESC</strong> or <strong>P</strong> to pause the game</p>
+         <p><strong>Enter</strong> or <strong>Space</strong> to confirm selections</p>`
+      : `<p><strong>WASD</strong> or <strong>Arrow Keys</strong> to move your paddle up and down</p>
+         <p><strong>Mouse</strong> or <strong>Touch</strong> to move your paddle directly</p>
+         <p><strong>ESC</strong> or <strong>P</strong> to pause the game</p>
+         <p><strong>Enter</strong> or <strong>Space</strong> to confirm selections</p>`;
+
+    this.howToPlayContent.innerHTML = `
+      <div class="how-to-section">
+        <h3>Goal</h3>
+        <p>Hit the ball past the AI opponent. First to reach the target score wins!</p>
+      </div>
+      <div class="how-to-section">
+        <h3>Controls</h3>
+        ${controlsText}
+      </div>
+      <div class="how-to-section">
+        <h3>Power-ups</h3>
+        <div class="powerup-list">
+          <div class="powerup-item"><span class="powerup-dot" style="background:#00ff88;box-shadow:0 0 8px #00ff88">E</span> <strong>Expand</strong> — Grow your paddle</div>
+          <div class="powerup-item"><span class="powerup-dot" style="background:#ff4444;box-shadow:0 0 8px #ff4444">S</span> <strong>Shrink</strong> — Shrink opponent's paddle</div>
+          <div class="powerup-item"><span class="powerup-dot" style="background:#ffee00;box-shadow:0 0 8px #ffee00">M</span> <strong>Multiball</strong> — Split into 3 balls</div>
+          <div class="powerup-item"><span class="powerup-dot" style="background:#aa66ff;box-shadow:0 0 8px #aa66ff">G</span> <strong>Magnet</strong> — Ball sticks to your paddle</div>
+          <div class="powerup-item"><span class="powerup-dot" style="background:#00ccff;box-shadow:0 0 8px #00ccff">T</span> <strong>Time Warp</strong> — Slow opponent's paddle</div>
+        </div>
+      </div>
+    `;
+  }
+
+  private updateTutorialText(): void {
+    if (!this.tutorialContent) return;
+    this.tutorialContent.innerHTML = `
+      <div class="how-to-section">
+        <p style="font-size:1.1rem;text-align:center;margin-bottom:1rem">
+          ${this.getTutorialPositionText()}
+        </p>
+        <p style="text-align:center;margin-bottom:1rem">
+          ${this.getTutorialMoveText()}.
+        </p>
+        <p style="text-align:center">
+          Collect glowing orbs for <strong>power-ups</strong>. First to target score wins!
+        </p>
+      </div>
+    `;
+  }
+
+  private updateControlHints(): void {
+    // Update main menu controls hint
+    const mainMenuHint = this.mainMenu.querySelector('.menu-controls-hint');
+    if (mainMenuHint) {
+      mainMenuHint.innerHTML = this.getControlHintText();
+    }
+    // Update pause menu controls hint
+    const pauseMenuHint = this.pauseMenu.querySelector('.pause-controls-hint');
+    if (pauseMenuHint) {
+      pauseMenuHint.innerHTML = this.getControlHintText();
+    }
   }
 
   showHUD(): void {
     this.hud.style.display = 'flex';
+    if (isTouchDevice()) {
+      this.pauseButton.style.display = 'flex';
+    }
+    this.showPortraitControls();
   }
 
   hideHUD(): void {
     this.hud.style.display = 'none';
+    this.pauseButton.style.display = 'none';
+    this.hidePortraitControls();
   }
 
   // Show/hide menu screens
@@ -439,6 +657,7 @@ export class UIManager {
     this.hideAllOverlays();
     this.mainMenu.classList.remove('hidden');
     this.hideHUD();
+    console.log('[UI] Show menu - portrait controls hidden');
   }
 
   hideMenu(): void {
@@ -449,6 +668,7 @@ export class UIManager {
     this.hideAllOverlays();
     this.pauseMenu.classList.remove('hidden');
     this.hideHUD();
+    console.log('[UI] Show pause - portrait controls hidden');
   }
 
   hidePause(): void {
@@ -474,6 +694,7 @@ export class UIManager {
   hideGameOver(): void {
     this.gameOverMenu.classList.add('hidden');
     this.gameOverTitle.classList.remove('flawless-title');
+    this.hidePortraitControls();
   }
 
   showCountdown(number: number): void {
@@ -494,6 +715,8 @@ export class UIManager {
     this.settingsPanel.style.display = 'block';
     this.settingsPanel.classList.add('slide-in');
     this.settingsPanel.classList.remove('slide-out');
+    this.hidePortraitControls();
+    console.log('[UI] Show settings - portrait controls hidden');
   }
 
   hideSettings(): void {
@@ -510,6 +733,8 @@ export class UIManager {
   showHowToPlay(): void {
     this.hideAllOverlays();
     this.howToPlayOverlay.classList.remove('hidden');
+    this.hidePortraitControls();
+    console.log('[UI] Show how to play - portrait controls hidden');
   }
 
   hideHowToPlay(): void {
@@ -519,6 +744,7 @@ export class UIManager {
 
   showTutorial(): void {
     this.tutorialOverlay.style.display = 'flex';
+    this.hidePortraitControls();
   }
 
   hideTutorial(): void {
@@ -621,5 +847,7 @@ export class UIManager {
     this.settingsPanel.remove();
     this.howToPlayOverlay.remove();
     this.tutorialOverlay.remove();
+    this.pauseButton.remove();
+    this.portraitControls.remove();
   }
 }

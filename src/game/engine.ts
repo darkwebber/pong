@@ -14,7 +14,7 @@ import {
 } from './constants.js';
 import type { GameState, GameSettings, Difficulty } from './types.js';
 import { DEFAULT_SETTINGS } from './types.js';
-import { InputManager } from './input.js';
+import { InputManager, isTouchDevice } from './input.js';
 import { AudioEngine } from './audio.js';
 import { Paddle } from './entities/paddle.js';
 import { Ball } from './entities/ball.js';
@@ -27,6 +27,7 @@ import { UIManager, type UIEvents } from '../ui/uiManager.js';
 
 export class Game {
   private canvas: HTMLCanvasElement;
+  private uiLayer: HTMLElement;
   private ctx: CanvasRenderingContext2D;
   private uiManager: UIManager;
   private input: InputManager;
@@ -78,8 +79,12 @@ export class Game {
   private shatterTimer = 0;
   private shatterPieces: { x: number; y: number; vx: number; vy: number; size: number; color: string }[] = [];
 
+  // Orientation
+  private isPortrait = false;
+
   constructor(canvas: HTMLCanvasElement, uiLayer: HTMLElement) {
     this.canvas = canvas;
+    this.uiLayer = uiLayer;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not get 2D context');
     this.ctx = ctx;
@@ -118,9 +123,16 @@ export class Game {
       onDifficultyChange: (d) => this.setDifficulty(d),
       onSettingToggle: (key) => this.toggleSetting(key),
       onDismissTutorial: () => this.dismissTutorial(),
+      onScreenPause: () => this.pauseGame(),
+      onPortraitButton: (value) => this.input.setPortraitButton(value),
     };
     this.uiManager = new UIManager(uiLayer, uiEvents, this.settings);
     this.uiManager.showMenu();
+
+    // Initialize portrait state for input and UI
+    this.input.setPortraitMode(this.isPortrait);
+    this.uiManager.setPortraitMode(this.isPortrait);
+    this.uiLayer.classList.toggle('portrait-mode', this.isPortrait);
 
     // Load rainbow mode unlock state
     const rainbowUnlocked = localStorage.getItem('pong_rainbow_unlocked');
@@ -145,6 +157,16 @@ export class Game {
     this.canvas.width = rect.width * dpr;
     this.canvas.height = rect.height * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const newPortrait = rect.width < rect.height;
+    if (this.isPortrait !== newPortrait) {
+      this.isPortrait = newPortrait;
+      this.input?.setPortraitMode(this.isPortrait);
+      this.uiManager?.setPortraitMode(this.isPortrait);
+      this.uiLayer?.classList.toggle('portrait-mode', this.isPortrait);
+    } else {
+      this.isPortrait = newPortrait;
+    }
   }
 
   private initAudio(): void {
@@ -181,8 +203,10 @@ export class Game {
 
     if (this.showTutorialOnStart) {
       this.uiManager.showTutorial();
+      this.input.setEnabled(false);
     } else {
       this.uiManager.showCountdown(this.countdownValue);
+      this.input.setEnabled(false);
     }
   }
 
@@ -212,8 +236,10 @@ export class Game {
   private pauseGame(): void {
     if (this.state === 'PLAYING') {
       this.state = 'PAUSED';
+      this.input.setEnabled(false);
       this.uiManager.showPause();
       this.pauseDimOverlay?.classList.add('active');
+      this.background.setBallDirection(0);
     }
   }
 
@@ -222,6 +248,7 @@ export class Game {
       this.state = 'COUNTDOWN';
       this.countdownValue = 3;
       this.countdownTimer = 0;
+      this.input.setEnabled(false);
       this.uiManager.hidePause();
       this.pauseDimOverlay?.classList.remove('active');
       this.uiManager.showCountdown(this.countdownValue);
@@ -313,6 +340,9 @@ export class Game {
   private updateCountdown(dt: number): void {
     this.countdownTimer += dt;
 
+    // Freeze wave during countdown
+    this.background.setBallDirection(0);
+
     if (this.countdownTimer >= 1) {
       this.countdownTimer -= 1;
       this.countdownValue--;
@@ -324,6 +354,7 @@ export class Game {
       } else {
         this.uiManager.hideCountdown();
         this.state = 'PLAYING';
+        this.input.setEnabled(true);
         this.serveBall();
       }
     }
@@ -335,7 +366,8 @@ export class Game {
     this.mainBall.reset(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     this.mainBall.launch(BALL_BASE_SPEED, angle, direction);
     this.rallyCount = 0;
-    this.youLabelTimer = 3; // Show "YOU" label for 3 seconds
+    // Longer "YOU" label on mobile for better orientation
+    this.youLabelTimer = isTouchDevice() ? 5 : 3;
   }
 
   private updatePlaying(dt: number): void {
@@ -349,6 +381,7 @@ export class Game {
     const maxSpeed = Math.max(...this.balls.map(b => b.speed));
     const intensity = Math.min(1, (this.rallyCount / 10) * 0.5 + (maxSpeed / BALL_MAX_SPEED) * 0.5);
     this.background.update(dt, intensity);
+    this.background.setBallDirection(this.mainBall.vx);
 
     // Player input
     const input = this.input.getPlayerInput();
@@ -763,6 +796,7 @@ export class Game {
     // Check game over
     if (this.playerScore >= this.settings.targetScore || this.aiScore >= this.settings.targetScore) {
       this.state = 'GAME_OVER';
+      this.input.setEnabled(false);
       this.initShatterEffect();
       this.uiManager.showGameOver(winner, this.playerScore, this.aiScore);
       return;
@@ -774,6 +808,9 @@ export class Game {
     this.playerPaddle.y = CANVAS_HEIGHT / 2;
     this.aiPaddle.y = CANVAS_HEIGHT / 2;
     this.powerUpManager.reset();
+
+    // Freeze wave until ball is served
+    this.background.setBallDirection(0);
 
     // Start countdown for next serve
     this.state = 'COUNTDOWN';
@@ -850,17 +887,23 @@ export class Game {
     // Clear
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    // Calculate scale to fit logical resolution into canvas
-    const scaleX = rect.width / CANVAS_WIDTH;
-    const scaleY = rect.height / CANVAS_HEIGHT;
-    const scale = Math.min(scaleX, scaleY);
-
-    const offsetX = (rect.width - CANVAS_WIDTH * scale) / 2;
-    const offsetY = (rect.height - CANVAS_HEIGHT * scale) / 2;
-
+    // Apply orientation-aware transform
     ctx.save();
-    ctx.translate(offsetX, offsetY);
-    ctx.scale(scale, scale);
+    if (this.isPortrait) {
+      const scale = Math.min(rect.width / CANVAS_HEIGHT, rect.height / CANVAS_WIDTH);
+      ctx.translate(rect.width / 2, rect.height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.scale(scale, scale);
+      ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
+    } else {
+      const scaleX = rect.width / CANVAS_WIDTH;
+      const scaleY = rect.height / CANVAS_HEIGHT;
+      const scale = Math.min(scaleX, scaleY);
+      const offsetX = (rect.width - CANVAS_WIDTH * scale) / 2;
+      const offsetY = (rect.height - CANVAS_HEIGHT * scale) / 2;
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(scale, scale);
+    }
 
     // Apply screen effects (shake)
     this.screenEffects.apply(ctx);
@@ -886,6 +929,37 @@ export class Game {
     this.playerPaddle.render(ctx);
     this.aiPaddle.render(ctx);
 
+    // Touch target indicator (mobile visual feedback)
+    const inputResult = this.input.getPlayerInput();
+    if (inputResult.mode === 'touch') {
+      const indicator = this.input.getTouchIndicator();
+      if (indicator.active) {
+        const targetY = indicator.y * CANVAS_HEIGHT;
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        if (this.isPortrait) {
+          ctx.moveTo(PADDING + 10, targetY);
+          ctx.lineTo(CANVAS_WIDTH * 0.35, targetY);
+        } else {
+          ctx.moveTo(PADDING + 10, targetY);
+          ctx.lineTo(CANVAS_WIDTH * 0.25, targetY);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#00f0ff';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#00f0ff';
+        ctx.beginPath();
+        ctx.arc(PADDING + 10, targetY, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
     // "YOU" label on player paddle (first 3 seconds of each round)
     if (this.youLabelTimer > 0) {
       const alpha = Math.min(1, this.youLabelTimer);
@@ -897,7 +971,14 @@ export class Game {
       ctx.textBaseline = 'bottom';
       ctx.shadowBlur = 10;
       ctx.shadowColor = '#00f0ff';
-      ctx.fillText('YOU', this.playerPaddle.x, this.playerPaddle.top() - 10);
+      if (this.isPortrait) {
+        ctx.save();
+        ctx.rotate(Math.PI / 2);
+        ctx.fillText('YOU', this.playerPaddle.x, this.playerPaddle.top() - 10);
+        ctx.restore();
+      } else {
+        ctx.fillText('YOU', this.playerPaddle.x, this.playerPaddle.top() - 10);
+      }
       ctx.restore();
     }
 
