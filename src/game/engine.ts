@@ -91,6 +91,9 @@ export class Game {
     // Setup canvas size
     this.resizeCanvas();
     window.addEventListener('resize', () => this.resizeCanvas());
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => this.resizeCanvas());
+    }
 
     // Initialize modules
     this.input = new InputManager(canvas);
@@ -153,12 +156,15 @@ export class Game {
 
   private resizeCanvas(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const rect = this.canvas.getBoundingClientRect();
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    this.canvas.width = width * dpr;
+    this.canvas.height = height * dpr;
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const newPortrait = rect.width < rect.height;
+    const newPortrait = width < height;
     if (this.isPortrait !== newPortrait) {
       this.isPortrait = newPortrait;
       this.input?.setPortraitMode(this.isPortrait);
@@ -880,25 +886,25 @@ export class Game {
 
   private render(): void {
     const ctx = this.ctx;
-    const rect = this.canvas.getBoundingClientRect();
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-    // Clear
-    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.clearRect(0, 0, width, height);
 
     // Apply orientation-aware transform
     ctx.save();
     if (this.isPortrait) {
-      const scale = Math.min(rect.width / CANVAS_HEIGHT, rect.height / CANVAS_WIDTH);
-      ctx.translate(rect.width / 2, rect.height / 2);
+      const scale = Math.min(width / CANVAS_HEIGHT, height / CANVAS_WIDTH);
+      ctx.translate(width / 2, height / 2);
       ctx.rotate(-Math.PI / 2);
       ctx.scale(scale, scale);
       ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
     } else {
-      const scaleX = rect.width / CANVAS_WIDTH;
-      const scaleY = rect.height / CANVAS_HEIGHT;
+      const scaleX = width / CANVAS_WIDTH;
+      const scaleY = height / CANVAS_HEIGHT;
       const scale = Math.min(scaleX, scaleY);
-      const offsetX = (rect.width - CANVAS_WIDTH * scale) / 2;
-      const offsetY = (rect.height - CANVAS_HEIGHT * scale) / 2;
+      const offsetX = (width - CANVAS_WIDTH * scale) / 2;
+      const offsetY = (height - CANVAS_HEIGHT * scale) / 2;
       ctx.translate(offsetX, offsetY);
       ctx.scale(scale, scale);
     }
@@ -999,7 +1005,7 @@ export class Game {
 
     // CRT effect (rendered in screen space, not game space)
     if (this.settings.crtEnabled) {
-      this.renderCRT(ctx, rect);
+      this.renderCRT(ctx, width, height);
     }
   }
 
@@ -1029,32 +1035,29 @@ export class Game {
     }
   }
 
-  private renderCRT(ctx: CanvasRenderingContext2D, rect: DOMRect): void {
+  private renderCRT(ctx: CanvasRenderingContext2D, width: number, height: number): void {
     ctx.save();
 
-    // Scanlines
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
     const scanlineHeight = 4;
-    for (let y = 0; y < rect.height; y += scanlineHeight * 2) {
-      ctx.fillRect(0, y, rect.width, scanlineHeight);
+    for (let y = 0; y < height; y += scanlineHeight * 2) {
+      ctx.fillRect(0, y, width, scanlineHeight);
     }
 
-    // Vignette
     const gradient = ctx.createRadialGradient(
-      rect.width / 2, rect.height / 2, rect.height * 0.3,
-      rect.width / 2, rect.height / 2, rect.height * 0.8
+      width / 2, height / 2, height * 0.3,
+      width / 2, height / 2, height * 0.8
     );
     gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.fillRect(0, 0, width, height);
 
-    // Chromatic aberration at edges (more visible)
     ctx.globalCompositeOperation = 'screen';
     ctx.fillStyle = 'rgba(255, 0, 0, 0.06)';
-    ctx.fillRect(-3, 0, rect.width, rect.height);
+    ctx.fillRect(-3, 0, width, height);
     ctx.fillStyle = 'rgba(0, 255, 255, 0.06)';
-    ctx.fillRect(3, 0, rect.width, rect.height);
+    ctx.fillRect(3, 0, width, height);
 
     ctx.restore();
   }

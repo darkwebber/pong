@@ -69,6 +69,7 @@ export class InputManager {
     this._boundOnBlur = () => {
       this._keysDown.clear();
       this._lastMovementKey = null;
+      this._portraitButtonValue = 0;
     };
 
     canvas.addEventListener('touchstart', this._boundOnTouchStart, { passive: false });
@@ -253,6 +254,9 @@ export class InputManager {
 
   private _onKeyUp(e: KeyboardEvent): void {
     this._keysDown.delete(e.key);
+    if (this._lastMovementKey === e.key) {
+      this._lastMovementKey = null;
+    }
   }
 
   /**

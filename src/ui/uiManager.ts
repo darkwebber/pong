@@ -203,9 +203,6 @@ export class UIManager {
       const isActive = toggle.classList.contains('active');
       toggle.classList.toggle('active', !isActive);
 
-      const settingsRecord = this.settings as unknown as Record<keyof GameSettings, unknown>;
-      settingsRecord[key] = !isActive;
-
       this.events.onSettingToggle(key);
     });
 

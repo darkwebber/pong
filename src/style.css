@@ -9,24 +9,27 @@
 html,
 body {
   width: 100%;
-  height: 100svh;
-  height: 100vh; /* fallback for older browsers */
+  height: 100%;
+  height: 100dvh; /* dynamic viewport for mobile */
   overflow: hidden;
   background: #050508;
   font-family: 'Inter', sans-serif;
   color: #e0e0ff;
   user-select: none;
   -webkit-user-select: none;
+  overscroll-behavior: none;
 }
 
 #app {
-  position: relative;
-  width: 100vw;
-  height: 100svh;
-  height: 100vh; /* fallback for older browsers */
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 #game-canvas {
@@ -122,25 +125,26 @@ body {
   background: currentColor;
   opacity: 0;
   transition: opacity 0.25s ease;
+  z-index: 0;
 }
 
 .neon-button:hover,
 .neon-button:active,
 .neon-button.active {
-  color: #050508;
+  background: currentColor;
   box-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
 }
 
 .neon-button:hover::before,
 .neon-button:active::before,
 .neon-button.active::before {
-  opacity: 1;
+  opacity: 0;
 }
 
 .neon-button:hover span,
 .neon-button:active span,
 .neon-button.active span {
-  color: #ffffff;
+  color: #050508;
 }
 
 .neon-button span {
