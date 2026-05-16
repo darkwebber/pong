@@ -29,6 +29,7 @@ export class Ball {
   private baseSpeed: number;
   wallBounced = false;
   lastPaddleHitTime = 0;
+  lastHitBy: 'player' | 'ai' | null = null;
   private rainbowMode = false;
   private rainbowHue = 0;
 
@@ -60,6 +61,7 @@ export class Ball {
     this.squashX = 1;
     this.squashY = 1;
     this.baseSpeed = 0;
+    this.lastHitBy = null;
   }
 
   launch(speed: number, angle: number = 0, direction: number = 1): void {

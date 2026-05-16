@@ -92,7 +92,7 @@ export class PowerUpManager {
 
   /**
    * Check collision between a ball and the spawned power-up.
-   * @param ballVelX Optional ball velocity X for reliable direction detection.
+   * @param lastHitBy Optional: which paddle last hit the ball. Determines power-up target.
    * @returns ActiveEffect if collected, null otherwise.
    */
   checkCollision(
@@ -102,6 +102,7 @@ export class PowerUpManager {
     playerPaddleX: number,
     aiPaddleX: number,
     ballVelX?: number,
+    lastHitBy?: 'player' | 'ai' | null,
   ): ActiveEffect | null {
     if (!this.spawned) return null;
 
@@ -111,14 +112,15 @@ export class PowerUpManager {
     const radiusSum = ballRadius + this.spawned.radius;
 
     if (distSq < radiusSum * radiusSum) {
-      // Determine target: leftward movement -> player, rightward -> ai
+      // Determine target: whoever last hit the ball gets the power-up
       let target: 'player' | 'ai';
-      if (ballVelX !== undefined) {
+      if (lastHitBy) {
+        target = lastHitBy;
+      } else if (ballVelX !== undefined) {
         target = ballVelX < 0 ? 'player' : 'ai';
       } else if (this.prevBallX !== null && ballX !== this.prevBallX) {
         target = ballX < this.prevBallX ? 'player' : 'ai';
       } else {
-        // Fallback: whichever paddle the ball is closer to is treated as the "collector"
         const distToPlayer = Math.abs(ballX - playerPaddleX);
         const distToAi = Math.abs(ballX - aiPaddleX);
         target = distToPlayer < distToAi ? 'player' : 'ai';

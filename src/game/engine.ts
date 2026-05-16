@@ -517,7 +517,8 @@ export class Game {
           ball.radius,
           this.playerPaddle.x,
           this.aiPaddle.x,
-          ball.vx
+          ball.vx,
+          ball.lastHitBy
         );
         if (collected) {
           this.applyPowerUp(collected);
@@ -570,6 +571,7 @@ export class Game {
     ) {
       ball.x = playerBounds.x + playerBounds.width + ball.radius + 2;
       ball.recordPaddleHit(now);
+      ball.lastHitBy = 'player';
       this.reflectBallOffPaddle(ball, this.playerPaddle, 1);
       if (isMainBall) this.onRallyHit(ball, -1);
       return false;
@@ -589,6 +591,7 @@ export class Game {
     ) {
       ball.x = aiBounds.x - ball.radius - 2;
       ball.recordPaddleHit(now);
+      ball.lastHitBy = 'ai';
       this.reflectBallOffPaddle(ball, this.aiPaddle, -1);
       if (isMainBall) this.onRallyHit(ball, 1);
       return false;
